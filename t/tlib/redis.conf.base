@@ -1,0 +1,8 @@
+port __PORT__
+dir __DIR__
+
+daemonize no
+timeout 300
+
+loglevel warning
+logfile stdout
