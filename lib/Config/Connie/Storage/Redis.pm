@@ -38,7 +38,7 @@ sub check_for_updates {
 
 has 'prefix' => (is => 'ro', default => sub {'connie_cfg'});
 
-sub _build_redis_key { my $s = shift; join('.', $s->prefix, $s->client->id, @_) }
+sub _build_redis_key { my $s = shift; join('|', $s->prefix, $s->client->id, @_) }
 sub notification_topic { $_[0]->_build_redis_key }
 sub all_keys_set       { $_[0]->_build_redis_key('idx') }
 sub key_for_cfg_key    { $_[0]->_build_redis_key('keys', $_[1]) }
