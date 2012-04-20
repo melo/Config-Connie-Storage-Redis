@@ -40,7 +40,8 @@ has 'prefix' => (is => 'ro', default => sub {'connie_cfg'});
 
 sub _build_redis_key { my $s = shift; join('.', $s->prefix, $s->client->id, @_) }
 sub notification_topic { $_[0]->_build_redis_key }
-sub key_for_cfg_key    { $_[0]->_build_redis_key($_[1]) }
+sub all_keys_set       { $_[0]->_build_redis_key('idx') }
+sub key_for_cfg_key    { $_[0]->_build_redis_key('keys', $_[1]) }
 
 
 ###############
@@ -72,6 +73,7 @@ sub key_updated {
 
   my $redis = $self->_redis_cmds;
   $redis->set($self->key_for_cfg_key($k), encode_json({ key => $k, cfg => $v }));
+  $redis->zadd($self->all_keys_set, time(), $k);
   $redis->publish($self->notification_topic, $k);
 }
 
