@@ -40,6 +40,17 @@ subtest 'get/set' => sub {
 
   usleep(100) until $i->check_for_updates;
   is($c->get('he'), 'human', 'Cache updated after check_for_updates');
+
+  ## clear local cache
+  my $cfg = $c->cfg;
+  delete $cfg->{$_} for keys %$cfg;
+  is($c->get('he'), undef, 'get() returns undef after local cache wipe');
+
+  ## Force disconnect/reconnect and init of storage link
+  delete $c->{storage};
+  $c->storage;
+
+  is($c->get('he'), 'human', 'Local cache updated after reconnect to storage');
 };
 
 
