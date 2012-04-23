@@ -58,7 +58,7 @@ subtest 'config changes' => sub {
   my $c = $i->client;
 
   my $cfg1;
-  my $cb1 = sub { my ($cln, $k, $v) = @_; $cfg1 = { $k => $v } };
+  my $cb1 = sub { my ($v, $k) = @_; $cfg1 = { $k => $v } };
   my $id1 = $c->subscribe('x1' => $cb1);
   ok($id1, 'subscribe() returns a true subscription ID');
 
@@ -71,7 +71,7 @@ subtest 'config changes' => sub {
   cmp_deeply($cfg1, { 'x1' => 'y1' }, '... but only matching our subscriber key');
 
   my $cfg2;
-  my $cb2 = sub { my ($cln, $k, $v) = @_; $cfg2 = { $k => $v } };
+  my $cb2 = sub { my ($v, $k) = @_; $cfg2 = { $k => $v } };
   my $id2 = $c->subscribe('x1' => $cb2);
   ok($id2, 'subscribe() returns a true subscription ID');
 
@@ -81,7 +81,7 @@ subtest 'config changes' => sub {
   cmp_deeply($cfg2, { 'x1' => 'y3' }, '... all subscribers are called');
 
   my $cfg3;
-  my $cb3 = sub { my ($cln, $k, $v) = @_; $cfg3 = { $k => $v } };
+  my $cb3 = sub { my ($v, $k) = @_; $cfg3 = { $k => $v } };
   my $id3 = $c->subscribe('y1' => $cb3);
   ok($id3, 'subscribe() returns a true subscription ID');
 
