@@ -4,8 +4,9 @@ package Config::Connie::Storage::Redis;
 # VERSION
 # AUTHORITY
 
-use Config::Connie::Object;
+use Moo;
 use JSON qw( encode_json decode_json );
+use namespace::autoclean;
 
 extends 'Config::Connie::Storage';
 
@@ -15,8 +16,11 @@ extends 'Config::Connie::Storage';
 
 has 'redis_connect' => (is => 'ro', required => 1);
 
-has '_redis_cmds'   => (is => 'ro', default => sub { $_[0]->redis_connect->($_[0], 'cmds') });
-has '_redis_pubsub' => (is => 'ro', default => sub { $_[0]->redis_connect->($_[0], 'pubsub') });
+has '_redis_cmds'   => (is => 'lazy');
+has '_redis_pubsub' => (is => 'lazy');
+
+sub _build__redis_cmds   { $_[0]->redis_connect->($_[0], 'cmds') }
+sub _build__redis_pubsub { $_[0]->redis_connect->($_[0], 'pubsub') }
 
 
 ######################
