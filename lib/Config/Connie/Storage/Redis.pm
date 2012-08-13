@@ -49,14 +49,16 @@ sub check_for_updates {
 
 sub key_updated {
   my ($self, $k, $v) = @_;
+  my $payload = __encode_value($k, $v);
 
   my $redis = $self->_redis_cmds;
-  $redis->set($self->key_for_cfg_key($k), encode_json({ key => $k, cfg => $v }));
+  $redis->set($self->key_for_cfg_key($k), $payload);
 
   $self->_update_storage_version;
 
   $redis->zadd($self->all_keys_set, time(), $k);
-  $redis->publish($self->notification_topic, $k);
+  $redis->publish($self->notification_topic,     $k);
+  $redis->publish($self->fat_notification_topic, $payload);
 }
 
 
@@ -66,9 +68,10 @@ sub key_updated {
 has 'prefix' => (is => 'ro', default => sub {'connie_cfg'});
 
 sub _build_redis_key { my $s = shift; join('|', $s->prefix, $s->instance->id, @_) }
-sub notification_topic { $_[0]->_build_redis_key }
-sub all_keys_set       { $_[0]->_build_redis_key('idx') }
-sub key_for_cfg_key    { $_[0]->_build_redis_key('keys', $_[1]) }
+sub notification_topic     { $_[0]->_build_redis_key }
+sub fat_notification_topic { $_[0]->_build_redis_key('fat') }
+sub all_keys_set           { $_[0]->_build_redis_key('idx') }
+sub key_for_cfg_key        { $_[0]->_build_redis_key('keys', $_[1]) }
 
 
 #############################
@@ -77,8 +80,13 @@ sub key_for_cfg_key    { $_[0]->_build_redis_key('keys', $_[1]) }
 sub _init_local_cache {
   my ($self) = @_;
 
-  my $keys = $self->_redis_cmds->zrange($self->all_keys_set, 0, -1);
-  $self->_on_key_update_notifcation($_) for @$keys;
+  my $cmds = $self->_redis_cmds;
+  my $keys = $cmds->zrange($self->all_keys_set, 0, -1);
+
+  return unless @$keys;
+
+  my $vals = $cmds->mget(map { $self->key_for_cfg_key($_) } @$keys);
+  $self->_on_key_update_notifcation($_) for @$vals;
 }
 
 
@@ -89,18 +97,24 @@ sub _init_subscriptions {
   my ($self) = @_;
 
   my $redis = $self->_redis_pubsub;
-  $redis->subscribe($self->notification_topic, sub { $self->_on_key_update_notifcation(shift) });
+  $redis->subscribe($self->fat_notification_topic, sub { $self->_on_key_update_notifcation(shift) });
 }
 
 sub _on_key_update_notifcation {
-  my ($self, $k) = @_;
+  my ($self, $v) = @_;
 
-  my $v = $self->_redis_cmds->get($self->key_for_cfg_key($k));
-  $v = decode_json($v) if $v;
-  $v = $v->{cfg}       if $v;
-
-  $self->instance->_cache_updated($k => $v);
+  if ($v) {
+    $v = __decode_value($v);
+    $self->instance->_cache_updated($v->{key} => $v->{cfg});
+  }
 }
+
+
+###############
+# Encode/decode
+
+sub __decode_value { decode_json($_[0]) }
+sub __encode_value { encode_json({ key => $_[0], cfg => $_[1] }) }
 
 
 #########

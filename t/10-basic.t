@@ -17,14 +17,17 @@ subtest 'get/set' => sub {
   is($i->get('he'), undef, 'get() returns undef for unkown keys');
   is($i->set('he', 'human'), 'human', 'set() returns setted value');
   is($i->get('he'), undef, '... but local cache not immediatly updated');
+  is($i->set('she', 'shuman'), 'shuman', 'another set(), to have multiple keys');
 
   usleep(100) until $i->check_for_updates;
-  is($i->get('he'), 'human', 'Cache updated after check_for_updates');
+  is($i->get('he'),  'human',  'Cache updated after check_for_updates');
+  is($i->get('she'), 'shuman', '... both keys');
 
   ## clear local cache with a new T::Config instance
   $i = T::Config->setup(redis_port => $port);
 
-  is($i->get('he'), 'human', 'Local cache updated after reconnect to storage');
+  is($i->get('he'),  'human',  'Local cache updated after reconnect to storage');
+  is($i->get('she'), 'shuman', '... both keys');
 };
 
 
