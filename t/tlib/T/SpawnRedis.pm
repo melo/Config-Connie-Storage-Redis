@@ -1,4 +1,4 @@
-package My::Test::SpawnRedis;
+package T::SpawnRedis;
 
 use strict;
 use warnings;

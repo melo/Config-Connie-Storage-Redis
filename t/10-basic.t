@@ -8,10 +8,10 @@ use Test::Deep;
 use Config::Connie;
 use Config::Connie::Storage::Redis;
 use Redis;
-use My::Test::SpawnRedis;
+use T::SpawnRedis;
 use Time::HiRes 'usleep';
 
-my $redis_ctl = My::Test::SpawnRedis->start;
+my $redis_ctl = T::SpawnRedis->start;
 my $port      = $redis_ctl->port;
 
 my $i = Config::Connie->register(
