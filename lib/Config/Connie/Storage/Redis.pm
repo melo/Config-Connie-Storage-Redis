@@ -8,7 +8,7 @@ use Moo;
 use JSON qw( encode_json decode_json );
 use namespace::autoclean;
 
-extends 'Config::Connie::Storage';
+with 'Config::Connie::Storage::Core';
 
 
 #######################################
@@ -23,8 +23,8 @@ sub _build__redis_cmds   { $_[0]->redis_connect->($_[0], 'cmds') }
 sub _build__redis_pubsub { $_[0]->redis_connect->($_[0], 'pubsub') }
 
 
-######################
-# Lifecycle management
+#########################
+# Setup and update checks
 
 sub init {
   my $self = shift;
@@ -40,12 +40,25 @@ sub check_for_updates {
 }
 
 
+##########################
+# Deal with client updates
+
+sub key_updated {
+  my ($self, $k, $v) = @_;
+
+  my $redis = $self->_redis_cmds;
+  $redis->set($self->key_for_cfg_key($k), encode_json({ key => $k, cfg => $v }));
+  $redis->zadd($self->all_keys_set, time(), $k);
+  $redis->publish($self->notification_topic, $k);
+}
+
+
 ############
 # Redis keys
 
 has 'prefix' => (is => 'ro', default => sub {'connie_cfg'});
 
-sub _build_redis_key { my $s = shift; join('|', $s->prefix, $s->client->id, @_) }
+sub _build_redis_key { my $s = shift; join('|', $s->prefix, $s->instance->id, @_) }
 sub notification_topic { $_[0]->_build_redis_key }
 sub all_keys_set       { $_[0]->_build_redis_key('idx') }
 sub key_for_cfg_key    { $_[0]->_build_redis_key('keys', $_[1]) }
@@ -79,20 +92,7 @@ sub _on_key_update_notifcation {
   $v = decode_json($v) if $v;
   $v = $v->{cfg}       if $v;
 
-  $self->client->_update_key($k => $v);
-}
-
-
-##############
-# Client hooks
-
-sub key_updated {
-  my ($self, $k, $v) = @_;
-
-  my $redis = $self->_redis_cmds;
-  $redis->set($self->key_for_cfg_key($k), encode_json({ key => $k, cfg => $v }));
-  $redis->zadd($self->all_keys_set, time(), $k);
-  $redis->publish($self->notification_topic, $k);
+  $self->instance->_cache_updated($k => $v);
 }
 
 
