@@ -8,7 +8,10 @@ use Moo;
 use JSON qw( encode_json decode_json );
 use namespace::autoclean;
 
-with 'Config::Connie::Storage::Core';
+with
+  'Config::Connie::Storage::Core',
+  'Config::Connie::Storage::Version',
+  ;
 
 
 #######################################
@@ -33,6 +36,7 @@ sub init {
   ## before we init the local cache, to make sure we don't lose updates
   $self->_init_subscriptions;
   $self->_init_local_cache;
+  $self->version;
 }
 
 sub check_for_updates {
@@ -48,6 +52,9 @@ sub key_updated {
 
   my $redis = $self->_redis_cmds;
   $redis->set($self->key_for_cfg_key($k), encode_json({ key => $k, cfg => $v }));
+
+  $self->_update_storage_version;
+
   $redis->zadd($self->all_keys_set, time(), $k);
   $redis->publish($self->notification_topic, $k);
 }
@@ -93,6 +100,24 @@ sub _on_key_update_notifcation {
   $v = $v->{cfg}       if $v;
 
   $self->instance->_cache_updated($k => $v);
+}
+
+
+#########
+# Version
+
+sub version_key { $_[0]->_build_redis_key('version') }
+
+sub get_storage_version {
+  my ($self) = @_;
+
+  $self->_redis_cmds->get($self->version_key);
+}
+
+sub _update_storage_version {
+  my ($self) = @_;
+
+  $self->_set_version($self->_redis_cmds->incr($self->version_key));
 }
 
 
