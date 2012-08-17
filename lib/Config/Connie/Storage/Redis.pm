@@ -119,6 +119,7 @@ sub _on_key_update_notifcation {
   if ($v) {
     $v = __decode_value($v);
     $self->instance->_cache_updated($v->{key} => $v->{cfg});
+    $self->clear_version;    ## our version is dirty, needs update
   }
 }
 
