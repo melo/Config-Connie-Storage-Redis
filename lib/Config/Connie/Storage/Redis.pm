@@ -19,11 +19,14 @@ with
 
 has 'redis_connect' => (is => 'ro', required => 1);
 
-has '_redis_cmds'   => (is => 'lazy');
-has '_redis_pubsub' => (is => 'lazy');
+has '_redis_cmds'   => (is => 'lazy', clearer => 1);
+has '_redis_pubsub' => (is => 'lazy', clearer => 1);
 
-sub _build__redis_cmds   { $_[0]->redis_connect->($_[0], 'cmds') }
-sub _build__redis_pubsub { $_[0]->redis_connect->($_[0], 'pubsub') }
+sub _build__redis_cmds   { my ($s) = @_; $s->_redis_cmds_pid($$);   $s->redis_connect->($s, 'cmds') }
+sub _build__redis_pubsub { my ($s) = @_; $s->_redis_pubsub_pid($$); $s->redis_connect->($s, 'pubsub') }
+
+has '_redis_cmds_pid'   => (is => 'rw', default => sub {$$});
+has '_redis_pubsub_pid' => (is => 'rw', default => sub {$$});
 
 
 #########################
@@ -31,6 +34,10 @@ sub _build__redis_pubsub { $_[0]->redis_connect->($_[0], 'pubsub') }
 
 sub init {
   my $self = shift;
+
+  $self->_clear_redis_pubsub;
+  $self->_clear_redis_cmds;
+  $self->clear_version;
 
   ## Note well: order is important - we need the subscriptions active
   ## before we init the local cache, to make sure we don't lose updates
@@ -40,7 +47,11 @@ sub init {
 }
 
 sub check_for_updates {
-  return shift->_redis_pubsub->wait_for_messages(0);
+  my ($self) = @_;
+
+  $self->init unless $self->_redis_pubsub_pid == $$ && $self->_redis_cmds_pid == $$;
+
+  return $self->_redis_pubsub->wait_for_messages(0);
 }
 
 
@@ -50,6 +61,8 @@ sub check_for_updates {
 sub key_updated {
   my ($self, $k, $v) = @_;
   my $payload = __encode_value($k, $v);
+
+  $self->init unless $self->_redis_pubsub_pid == $$ && $self->_redis_cmds_pid == $$;
 
   my $redis = $self->_redis_cmds;
   $redis->set($self->key_for_cfg_key($k), $payload);
